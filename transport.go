@@ -156,7 +156,7 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 	}
 	vid := uint16(vid64)
 
-	extMap["43"] = &utls.SupportedVersionsExtension{
+	extMap["43"] = &tls.SupportedVersionsExtension{
 		Versions: []uint16{
 			vid,
 		},
