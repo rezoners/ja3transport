@@ -57,12 +57,6 @@ var extMap = map[string]tls.TLSExtension{
 	"27": &tls.FakeCertCompressionAlgsExtension{},
 	"28": &tls.FakeRecordSizeLimitExtension{},
 	"35": &tls.SessionTicketExtension{},
-	"43": &tls.SupportedVersionsExtension{Versions: []uint16{
-		tls.GREASE_PLACEHOLDER,
-		tls.VersionTLS13,
-		tls.VersionTLS12,
-		tls.VersionTLS11,
-		tls.VersionTLS10}},
 	"44": &tls.CookieExtension{},
 	"45": &tls.PSKKeyExchangeModesExtension{
 		Modes: []uint8{
@@ -162,6 +156,11 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 	}
 	vid := uint16(vid64)
 
+	extMap["43"] = &utls.SupportedVersionsExtension{
+		Versions: []uint16{
+			vid,
+		},
+	}
 	// build CipherSuites
 	var suites []uint16
 	for _, c := range ciphers {
