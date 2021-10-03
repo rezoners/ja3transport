@@ -11,7 +11,11 @@ import (
 
 	tls "github.com/refraction-networking/utls"
 )
+type errExtensionNotExist string
 
+func (err errExtensionNotExist) Error() string {
+	return fmt.Sprintf("Extension does not exist: %s\n", err)
+}
 // greasePlaceholder is a random value (well, kindof '0x?a?a) specified in a
 // random RFC.
 const greasePlaceholder = 0x0a0a
