@@ -54,9 +54,9 @@ var extMap = map[string]tls.TLSExtension{
 			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
 		"18": &tls.SCTExtension{},
-		"21": &tls.tlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
+		"21": &tls.UtlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
 		"22": &tls.GenericExtension{Id: 22}, // encrypt_then_mac
-		"23": &tls.tlsExtendedMasterSecretExtension{},
+		"23": &tls.UtlsExtendedMasterSecretExtension{},
 		"27": &tls.FakeCertCompressionAlgsExtension{},
 		"28": &tls.FakeRecordSizeLimitExtension{},
 		"35": &tls.SessionTicketExtension{},
