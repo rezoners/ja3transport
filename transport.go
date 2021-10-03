@@ -30,43 +30,48 @@ func (e ErrExtensionNotExist) Error() string {
 // used to calculate the JA3 signature. These JA3-dependent values are applied
 // after the instantiation of the map.
 var extMap = map[string]tls.TLSExtension{
-	"0": &tls.SNIExtension{},
-	"5": &tls.StatusRequestExtension{},
-	// These are applied later
-	// "10": &tls.SupportedCurvesExtension{...}
-	// "11": &tls.SupportedPointsExtension{...}
-	"13": &tls.SignatureAlgorithmsExtension{
-		SupportedSignatureAlgorithms: []tls.SignatureScheme{
-			tls.ECDSAWithP256AndSHA256,
-			tls.PSSWithSHA256,
-			tls.PKCS1WithSHA256,
-			tls.ECDSAWithP384AndSHA384,
-			tls.PSSWithSHA384,
-			tls.PKCS1WithSHA384,
-			tls.PSSWithSHA512,
-			tls.PKCS1WithSHA512,
-			tls.PKCS1WithSHA1,
+		"0": &tls.SNIExtension{},
+		"5": &tls.StatusRequestExtension{},
+		// These are applied later
+		// "10": &tls.SupportedCurvesExtension{...}
+		// "11": &tls.SupportedPointsExtension{...}
+		"13": &tls.SignatureAlgorithmsExtension{
+			SupportedSignatureAlgorithms: []tls.SignatureScheme{
+				tls.ECDSAWithP256AndSHA256,
+				tls.ECDSAWithP384AndSHA384,
+				tls.ECDSAWithP521AndSHA512,
+				tls.PSSWithSHA256,
+				tls.PSSWithSHA384,
+				tls.PSSWithSHA512,
+				tls.PKCS1WithSHA256,
+				tls.PKCS1WithSHA384,
+				tls.PKCS1WithSHA512,
+				tls.ECDSAWithSHA1,
+				tls.PKCS1WithSHA1,
+			},
 		},
-	},
-	"16": &tls.ALPNExtension{
-		AlpnProtocols: []string{"h2", "http/1.1"},
-	},
-	"18": &tls.SCTExtension{},
-	"21": &tls.UtlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
-	"23": &tls.UtlsExtendedMasterSecretExtension{},
-	"27": &tls.FakeCertCompressionAlgsExtension{},
-	"28": &tls.FakeRecordSizeLimitExtension{},
-	"35": &tls.SessionTicketExtension{},
-	"44": &tls.CookieExtension{},
-	"45": &tls.PSKKeyExchangeModesExtension{
-		Modes: []uint8{
+		"16": &tls.ALPNExtension{
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		"18": &tls.SCTExtension{},
+		"21": &tls.tlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
+		"22": &tls.GenericExtension{Id: 22}, // encrypt_then_mac
+		"23": &tls.tlsExtendedMasterSecretExtension{},
+		"27": &tls.FakeCertCompressionAlgsExtension{},
+		"28": &tls.FakeRecordSizeLimitExtension{},
+		"35": &tls.SessionTicketExtension{},
+		"44": &tls.CookieExtension{},
+		"45": &tls.PSKKeyExchangeModesExtension{Modes: []uint8{
 			tls.PskModeDHE,
 		}},
-	"51":    &tls.KeyShareExtension{KeyShares: []tls.KeyShare{}},
-	"13172": &tls.NPNExtension{},
-	"65281": &tls.RenegotiationInfoExtension{
-		Renegotiation: tls.RenegotiateOnceAsClient,
-	},
+		"49": &tls.GenericExtension{Id: 49}, // post_handshake_auth
+		"50": &tls.GenericExtension{Id: 50}, // signature_algorithms_cert
+		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{{Group: tls.X25519},
+			{Group: tls.CurveP256}}},
+		"13172": &tls.NPNExtension{},
+		"65281": &tls.RenegotiationInfoExtension{
+			Renegotiation: tls.RenegotiateOnceAsClient,
+		},
 }
 
 // NewTransport creates an http.Transport which mocks the given JA3 signature when HTTPS is used
@@ -104,6 +109,7 @@ func NewTransportWithConfig(ja3 string, config *tls.Config) (*http.Transport, er
 
 // stringToSpec creates a ClientHelloSpec based on a JA3 string
 func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
+	extMap := genMap()
 	tokens := strings.Split(ja3, ",")
 
 	version := tokens[0]
@@ -140,27 +146,33 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 	}
 	extMap["11"] = &tls.SupportedPointsExtension{SupportedPoints: targetPointFormats}
 
-	// build extenions list
-	var exts []tls.TLSExtension
-	for _, e := range extensions {
-		te, ok := extMap[e]
-		if !ok {
-			return nil, ErrExtensionNotExist(e)
-		}
-		exts = append(exts, te)
-	}
-	// build SSLVersion
+	// set extension 43
 	vid64, err := strconv.ParseUint(version, 10, 16)
 	if err != nil {
 		return nil, err
 	}
 	vid := uint16(vid64)
-
 	extMap["43"] = &tls.SupportedVersionsExtension{
 		Versions: []uint16{
 			vid,
 		},
 	}
+
+	// build extenions list
+	var exts []tls.TLSExtension
+	for _, e := range extensions {
+		te, ok := extMap[e]
+		if !ok {
+			return nil, errExtensionNotExist(e)
+		}
+		exts = append(exts, te)
+	}
+	// build SSLVersion
+	// vid64, err := strconv.ParseUint(version, 10, 16)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	// build CipherSuites
 	var suites []uint16
 	for _, c := range ciphers {
@@ -170,7 +182,7 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 		}
 		suites = append(suites, uint16(cid))
 	}
-
+	// _ = vid
 	return &tls.ClientHelloSpec{
 		TLSVersMin:         vid,
 		TLSVersMax:         vid,
