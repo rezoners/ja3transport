@@ -192,7 +192,54 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 		GetSessionID:       sha256.Sum256,
 	}, nil
 }
+func genMap() (extMap map[string]tls.TLSExtension) {
+	extMap = map[string]tls.TLSExtension{
+		"0": &tls.SNIExtension{},
+		"5": &tls.StatusRequestExtension{},
+		// These are applied later
+		// "10": &tls.SupportedCurvesExtension{...}
+		// "11": &tls.SupportedPointsExtension{...}
+		"13": &tls.SignatureAlgorithmsExtension{
+			SupportedSignatureAlgorithms: []tls.SignatureScheme{
+				tls.ECDSAWithP256AndSHA256,
+				tls.ECDSAWithP384AndSHA384,
+				tls.ECDSAWithP521AndSHA512,
+				tls.PSSWithSHA256,
+				tls.PSSWithSHA384,
+				tls.PSSWithSHA512,
+				tls.PKCS1WithSHA256,
+				tls.PKCS1WithSHA384,
+				tls.PKCS1WithSHA512,
+				tls.ECDSAWithSHA1,
+				tls.PKCS1WithSHA1,
+			},
+		},
+		"16": &tls.ALPNExtension{
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		"18": &tls.SCTExtension{},
+		"21": &tls.tlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
+		"22": &tls.GenericExtension{Id: 22}, // encrypt_then_mac
+		"23": &tls.tlsExtendedMasterSecretExtension{},
+		"27": &tls.FakeCertCompressionAlgsExtension{},
+		"28": &tls.FakeRecordSizeLimitExtension{},
+		"35": &tls.SessionTicketExtension{},
+		"44": &tls.CookieExtension{},
+		"45": &tls.PSKKeyExchangeModesExtension{Modes: []uint8{
+			tls.PskModeDHE,
+		}},
+		"49": &tls.GenericExtension{Id: 49}, // post_handshake_auth
+		"50": &tls.GenericExtension{Id: 50}, // signature_algorithms_cert
+		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{{Group: tls.X25519},
+			{Group: tls.CurveP256}}},
+		"13172": &tls.NPNExtension{},
+		"65281": &tls.RenegotiationInfoExtension{
+			Renegotiation: tls.RenegotiateOnceAsClient,
+		},
+	}
+	return
 
+}
 func urlToHost(target *url.URL) *url.URL {
 	if !strings.Contains(target.Host, ":") {
 		if target.Scheme == "http" {
