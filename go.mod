@@ -8,3 +8,4 @@ require (
 	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914
 	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418 // indirect
 )
+replace github.com/rezoners/ja3transport => github.com/CUCyber/ja3transport
