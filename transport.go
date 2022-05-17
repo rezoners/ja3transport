@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	utls "github.com/Danny-Dasilva/utls"
-	tls "github.com/refraction-networking/utls"
+	tls "github.com/Danny-Dasilva/utls"
+//	tls "github.com/refraction-networking/utls"
 )
 type errExtensionNotExist string
 
