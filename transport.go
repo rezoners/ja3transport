@@ -222,11 +222,11 @@ func genMap() (extMap map[string]tls.TLSExtension) {
 			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
 		"18": &tls.SCTExtension{},
-		"21": &tls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle},
+		"21": &tls.UtlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
 		"22": &tls.GenericExtension{Id: 22}, // encrypt_then_mac
 		"23": &tls.UtlsExtendedMasterSecretExtension{},
 		"27": &tls.FakeCertCompressionAlgsExtension{
-			Methods: []utls.CertCompressionAlgo{utls.CertCompressionBrotli},
+			Methods: []tls.CertCompressionAlgo{tls.CertCompressionBrotli},
 		},
 		"28": &tls.FakeRecordSizeLimitExtension{}, //Limit: 0x4001
 		"35": &tls.SessionTicketExtension{},
@@ -244,7 +244,7 @@ func genMap() (extMap map[string]tls.TLSExtension) {
 		}},
 		"49": &tls.GenericExtension{Id: 49}, // post_handshake_auth
 		"50": &tls.GenericExtension{Id: 50}, // signature_algorithms_cert
-		"51": &tls.KeyShareExtension{KeyShares: []utls.KeyShare{
+		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{
 			{Group: tls.CurveID(tls.GREASE_PLACEHOLDER), Data: []byte{0}},
 			{Group: tls.X25519},
 
@@ -258,7 +258,7 @@ func genMap() (extMap map[string]tls.TLSExtension) {
 			},
 		},
 		"65281": &tls.RenegotiationInfoExtension{
-			Renegotiation: utls.RenegotiateOnceAsClient,
+			Renegotiation: tls.RenegotiateOnceAsClient,
 		},
 	}
 	return
