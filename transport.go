@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	tls "github.com/Danny-Dasilva/utls"
-//	tls "github.com/refraction-networking/utls"
+
+	tls "github.com/refraction-networking/utls"
 )
 type errExtensionNotExist string
 
@@ -112,8 +112,7 @@ func NewTransportWithConfig(ja3 string, config *tls.Config) (*http.Transport, er
 }
 
 // stringToSpec creates a ClientHelloSpec based on a JA3 string
-func StringToSpec(ja3 string, userAgent string) (*tls.ClientHelloSpec, error) {
-	parsedUserAgent := parseUserAgent(userAgent)
+func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 	extMap := genMap()
 	tokens := strings.Split(ja3, ",")
 
@@ -128,18 +127,15 @@ func StringToSpec(ja3 string, userAgent string) (*tls.ClientHelloSpec, error) {
 	if len(pointFormats) == 1 && pointFormats[0] == "" {
 		pointFormats = []string{}
 	}
+
 	// parse curves
 	var targetCurves []tls.CurveID
-	targetCurves = append(targetCurves, tls.CurveID(tls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
 	for _, c := range curves {
 		cid, err := strconv.ParseUint(c, 10, 16)
 		if err != nil {
 			return nil, err
 		}
 		targetCurves = append(targetCurves, tls.CurveID(cid))
-		// if cid != uint64(tls.CurveP521) {
-		// CurveP521 sometimes causes handshake errors
-		// }
 	}
 	extMap["10"] = &tls.SupportedCurvesExtension{Curves: targetCurves}
 
@@ -160,34 +156,21 @@ func StringToSpec(ja3 string, userAgent string) (*tls.ClientHelloSpec, error) {
 		return nil, err
 	}
 	vid := uint16(vid64)
-	// extMap["43"] = &utls.SupportedVersionsExtension{
-	// 	Versions: []uint16{
-	// 		utls.VersionTLS12,
-	// 	},
-	// }
+	extMap["43"] = &tls.SupportedVersionsExtension{
+		Versions: []uint16{
+			vid,
+		},
+	}
 
 	// build extenions list
 	var exts []tls.TLSExtension
-	//Optionally Add Chrome Grease Extension
-	if parsedUserAgent == chrome {
-		exts = append(exts, &tls.UtlsGREASEExtension{})
-	}
 	for _, e := range extensions {
 		te, ok := extMap[e]
 		if !ok {
-			return nil, raiseExtensionError(e)
-		}
-		// //Optionally add Chrome Grease Extension
-		if e == "21" && parsedUserAgent == chrome {
-			exts = append(exts, &tls.UtlsGREASEExtension{})
+			return nil, errExtensionNotExist(e)
 		}
 		exts = append(exts, te)
 	}
-	//Add this back in if user agent is chrome and no padding extension is given
-	// if parsedUserAgent == chrome {
-	// 	exts = append(exts, &utls.UtlsGREASEExtension{})
-	// 	exts = append(exts, &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle})
-	// }
 	// build SSLVersion
 	// vid64, err := strconv.ParseUint(version, 10, 16)
 	// if err != nil {
@@ -196,10 +179,6 @@ func StringToSpec(ja3 string, userAgent string) (*tls.ClientHelloSpec, error) {
 
 	// build CipherSuites
 	var suites []uint16
-	//Optionally Add Chrome Grease Extension
-	if parsedUserAgent == chrome {
-		suites = append(suites, tls.GREASE_PLACEHOLDER)
-	}
 	for _, c := range ciphers {
 		cid, err := strconv.ParseUint(c, 10, 16)
 		if err != nil {
@@ -207,10 +186,10 @@ func StringToSpec(ja3 string, userAgent string) (*tls.ClientHelloSpec, error) {
 		}
 		suites = append(suites, uint16(cid))
 	}
-	_ = vid
+	// _ = vid
 	return &tls.ClientHelloSpec{
-		// TLSVersMin:         vid,
-		// TLSVersMax:         vid,
+		TLSVersMin:         vid,
+		TLSVersMax:         vid,
 		CipherSuites:       suites,
 		CompressionMethods: []byte{0},
 		Extensions:         exts,
@@ -246,38 +225,18 @@ func genMap() (extMap map[string]tls.TLSExtension) {
 		"21": &tls.UtlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
 		"22": &tls.GenericExtension{Id: 22}, // encrypt_then_mac
 		"23": &tls.UtlsExtendedMasterSecretExtension{},
-		"27": &tls.FakeCertCompressionAlgsExtension{
-			Methods: []tls.CertCompressionAlgo{tls.CertCompressionBrotli},
-		},
-		"28": &tls.FakeRecordSizeLimitExtension{}, //Limit: 0x4001
+		"27": &tls.FakeCertCompressionAlgsExtension{},
+		"28": &tls.FakeRecordSizeLimitExtension{},
 		"35": &tls.SessionTicketExtension{},
-		"34": &tls.GenericExtension{Id: 34},
-		"41": &tls.GenericExtension{Id: 41}, //FIXME pre_shared_key
-		"43": &tls.SupportedVersionsExtension{Versions: []uint16{
-			tls.GREASE_PLACEHOLDER,
-			tls.VersionTLS13,
-			tls.VersionTLS12,
-			tls.VersionTLS11,
-			tls.VersionTLS10}},
 		"44": &tls.CookieExtension{},
 		"45": &tls.PSKKeyExchangeModesExtension{Modes: []uint8{
 			tls.PskModeDHE,
 		}},
 		"49": &tls.GenericExtension{Id: 49}, // post_handshake_auth
 		"50": &tls.GenericExtension{Id: 50}, // signature_algorithms_cert
-		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{
-			{Group: tls.CurveID(tls.GREASE_PLACEHOLDER), Data: []byte{0}},
-			{Group: tls.X25519},
-
-			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake
-		}},
-		"30032": &tls.GenericExtension{Id: 0x7550, Data: []byte{0}}, //FIXME
+		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{{Group: tls.X25519},
+			{Group: tls.CurveP256}}},
 		"13172": &tls.NPNExtension{},
-		"17513": &tls.ApplicationSettingsExtension{
-			SupportedALPNList: []string{
-				"h2",
-			},
-		},
 		"65281": &tls.RenegotiationInfoExtension{
 			Renegotiation: tls.RenegotiateOnceAsClient,
 		},
