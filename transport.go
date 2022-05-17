@@ -112,7 +112,8 @@ func NewTransportWithConfig(ja3 string, config *tls.Config) (*http.Transport, er
 }
 
 // stringToSpec creates a ClientHelloSpec based on a JA3 string
-func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
+func StringToSpec(ja3 string, userAgent string) (*tls.ClientHelloSpec, error) {
+	parsedUserAgent := parseUserAgent(userAgent)
 	extMap := genMap()
 	tokens := strings.Split(ja3, ",")
 
@@ -127,15 +128,18 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 	if len(pointFormats) == 1 && pointFormats[0] == "" {
 		pointFormats = []string{}
 	}
-
 	// parse curves
 	var targetCurves []tls.CurveID
+	targetCurves = append(targetCurves, tls.CurveID(tls.GREASE_PLACEHOLDER)) //append grease for Chrome browsers
 	for _, c := range curves {
 		cid, err := strconv.ParseUint(c, 10, 16)
 		if err != nil {
 			return nil, err
 		}
 		targetCurves = append(targetCurves, tls.CurveID(cid))
+		// if cid != uint64(tls.CurveP521) {
+		// CurveP521 sometimes causes handshake errors
+		// }
 	}
 	extMap["10"] = &tls.SupportedCurvesExtension{Curves: targetCurves}
 
@@ -156,21 +160,34 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 		return nil, err
 	}
 	vid := uint16(vid64)
-	extMap["43"] = &tls.SupportedVersionsExtension{
-		Versions: []uint16{
-			vid,
-		},
-	}
+	// extMap["43"] = &utls.SupportedVersionsExtension{
+	// 	Versions: []uint16{
+	// 		utls.VersionTLS12,
+	// 	},
+	// }
 
 	// build extenions list
 	var exts []tls.TLSExtension
+	//Optionally Add Chrome Grease Extension
+	if parsedUserAgent == chrome {
+		exts = append(exts, &tls.UtlsGREASEExtension{})
+	}
 	for _, e := range extensions {
 		te, ok := extMap[e]
 		if !ok {
-			return nil, errExtensionNotExist(e)
+			return nil, raiseExtensionError(e)
+		}
+		// //Optionally add Chrome Grease Extension
+		if e == "21" && parsedUserAgent == chrome {
+			exts = append(exts, &tls.UtlsGREASEExtension{})
 		}
 		exts = append(exts, te)
 	}
+	//Add this back in if user agent is chrome and no padding extension is given
+	// if parsedUserAgent == chrome {
+	// 	exts = append(exts, &utls.UtlsGREASEExtension{})
+	// 	exts = append(exts, &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle})
+	// }
 	// build SSLVersion
 	// vid64, err := strconv.ParseUint(version, 10, 16)
 	// if err != nil {
@@ -179,6 +196,10 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 
 	// build CipherSuites
 	var suites []uint16
+	//Optionally Add Chrome Grease Extension
+	if parsedUserAgent == chrome {
+		suites = append(suites, tls.GREASE_PLACEHOLDER)
+	}
 	for _, c := range ciphers {
 		cid, err := strconv.ParseUint(c, 10, 16)
 		if err != nil {
@@ -186,10 +207,10 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 		}
 		suites = append(suites, uint16(cid))
 	}
-	// _ = vid
+	_ = vid
 	return &tls.ClientHelloSpec{
-		TLSVersMin:         vid,
-		TLSVersMax:         vid,
+		// TLSVersMin:         vid,
+		// TLSVersMax:         vid,
 		CipherSuites:       suites,
 		CompressionMethods: []byte{0},
 		Extensions:         exts,
