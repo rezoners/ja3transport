@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-
+	utls "github.com/Danny-Dasilva/utls"
 	tls "github.com/refraction-networking/utls"
 )
 type errExtensionNotExist string
@@ -196,49 +196,69 @@ func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
 		GetSessionID:       sha256.Sum256,
 	}, nil
 }
-func genMap() (extMap map[string]tls.TLSExtension) {
-	extMap = map[string]tls.TLSExtension{
-		"0": &tls.SNIExtension{},
-		"5": &tls.StatusRequestExtension{},
+func genMap() (extMap map[string]utls.TLSExtension) {
+	extMap = map[string]utls.TLSExtension{
+		"0": &utls.SNIExtension{},
+		"5": &utls.StatusRequestExtension{},
 		// These are applied later
 		// "10": &tls.SupportedCurvesExtension{...}
 		// "11": &tls.SupportedPointsExtension{...}
-		"13": &tls.SignatureAlgorithmsExtension{
-			SupportedSignatureAlgorithms: []tls.SignatureScheme{
-				tls.ECDSAWithP256AndSHA256,
-				tls.ECDSAWithP384AndSHA384,
-				tls.ECDSAWithP521AndSHA512,
-				tls.PSSWithSHA256,
-				tls.PSSWithSHA384,
-				tls.PSSWithSHA512,
-				tls.PKCS1WithSHA256,
-				tls.PKCS1WithSHA384,
-				tls.PKCS1WithSHA512,
-				tls.ECDSAWithSHA1,
-				tls.PKCS1WithSHA1,
+		"13": &utls.SignatureAlgorithmsExtension{
+			SupportedSignatureAlgorithms: []utls.SignatureScheme{
+				utls.ECDSAWithP256AndSHA256,
+				utls.ECDSAWithP384AndSHA384,
+				utls.ECDSAWithP521AndSHA512,
+				utls.PSSWithSHA256,
+				utls.PSSWithSHA384,
+				utls.PSSWithSHA512,
+				utls.PKCS1WithSHA256,
+				utls.PKCS1WithSHA384,
+				utls.PKCS1WithSHA512,
+				utls.ECDSAWithSHA1,
+				utls.PKCS1WithSHA1,
 			},
 		},
-		"16": &tls.ALPNExtension{
+		"16": &utls.ALPNExtension{
 			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
-		"18": &tls.SCTExtension{},
-		"21": &tls.UtlsPaddingExtension{GetPaddingLen: tls.BoringPaddingStyle},
-		"22": &tls.GenericExtension{Id: 22}, // encrypt_then_mac
-		"23": &tls.UtlsExtendedMasterSecretExtension{},
-		"27": &tls.FakeCertCompressionAlgsExtension{},
-		"28": &tls.FakeRecordSizeLimitExtension{},
-		"35": &tls.SessionTicketExtension{},
-		"44": &tls.CookieExtension{},
-		"45": &tls.PSKKeyExchangeModesExtension{Modes: []uint8{
-			tls.PskModeDHE,
+		"18": &utls.SCTExtension{},
+		"21": &utls.UtlsPaddingExtension{GetPaddingLen: utls.BoringPaddingStyle},
+		"22": &utls.GenericExtension{Id: 22}, // encrypt_then_mac
+		"23": &utls.UtlsExtendedMasterSecretExtension{},
+		"27": &utls.FakeCertCompressionAlgsExtension{
+			Methods: []utls.CertCompressionAlgo{utls.CertCompressionBrotli},
+		},
+		"28": &utls.FakeRecordSizeLimitExtension{}, //Limit: 0x4001
+		"35": &utls.SessionTicketExtension{},
+		"34": &utls.GenericExtension{Id: 34},
+		"41": &utls.GenericExtension{Id: 41}, //FIXME pre_shared_key
+		"43": &utls.SupportedVersionsExtension{Versions: []uint16{
+			utls.GREASE_PLACEHOLDER,
+			utls.VersionTLS13,
+			utls.VersionTLS12,
+			utls.VersionTLS11,
+			utls.VersionTLS10}},
+		"44": &utls.CookieExtension{},
+		"45": &utls.PSKKeyExchangeModesExtension{Modes: []uint8{
+			utls.PskModeDHE,
 		}},
-		"49": &tls.GenericExtension{Id: 49}, // post_handshake_auth
-		"50": &tls.GenericExtension{Id: 50}, // signature_algorithms_cert
-		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{{Group: tls.X25519},
-			{Group: tls.CurveP256}}},
-		"13172": &tls.NPNExtension{},
-		"65281": &tls.RenegotiationInfoExtension{
-			Renegotiation: tls.RenegotiateOnceAsClient,
+		"49": &utls.GenericExtension{Id: 49}, // post_handshake_auth
+		"50": &utls.GenericExtension{Id: 50}, // signature_algorithms_cert
+		"51": &utls.KeyShareExtension{KeyShares: []utls.KeyShare{
+			{Group: utls.CurveID(utls.GREASE_PLACEHOLDER), Data: []byte{0}},
+			{Group: utls.X25519},
+
+			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake
+		}},
+		"30032": &utls.GenericExtension{Id: 0x7550, Data: []byte{0}}, //FIXME
+		"13172": &utls.NPNExtension{},
+		"17513": &utls.ApplicationSettingsExtension{
+			SupportedALPNList: []string{
+				"h2",
+			},
+		},
+		"65281": &utls.RenegotiationInfoExtension{
+			Renegotiation: utls.RenegotiateOnceAsClient,
 		},
 	}
 	return
