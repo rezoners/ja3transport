@@ -3,13 +3,13 @@ package ja3transport
 import (
 	"crypto/sha256"
 	"fmt"
+	_ "github.com/andybalholm/brotli"
+	tls "github.com/refraction-networking/utls"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-
-	tls "github.com/refraction-networking/utls"
 )
 type errExtensionNotExist string
 
@@ -113,7 +113,7 @@ func NewTransportWithConfig(ja3 string, config *tls.Config) (*http.Transport, er
 
 // stringToSpec creates a ClientHelloSpec based on a JA3 string
 func stringToSpec(ja3 string) (*tls.ClientHelloSpec, error) {
-	extMap := genMap2()
+	extMap := genMap()
 	tokens := strings.Split(ja3, ",")
 
 	version := tokens[0]
@@ -256,9 +256,9 @@ func genMap2() (extMap map[string]tls.TLSExtension) {
 		"13172": &tls.NPNExtension{},
 		//"17513": &tls.ApplicationSettingsExtension{
 		//	SupportedALPNList: []string{
-	//			"h2",
-//			},
-	//	},
+		//			"h2",
+		//			},
+		//	},
 		"65281": &tls.RenegotiationInfoExtension{
 			Renegotiation: tls.RenegotiateOnceAsClient,
 		},
@@ -305,8 +305,12 @@ func genMap() (extMap map[string]tls.TLSExtension) {
 		}},
 		"49": &tls.GenericExtension{Id: 49}, // post_handshake_auth
 		"50": &tls.GenericExtension{Id: 50}, // signature_algorithms_cert
-		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{{Group: tls.X25519},
-			{Group: tls.CurveP256}}},
+		"51": &tls.KeyShareExtension{KeyShares: []tls.KeyShare{
+			//{Group: tls.CurveID(tls.GREASE_PLACEHOLDER), Data: []byte{0}},
+			{Group: tls.X25519},
+
+			// {Group: utls.CurveP384}, known bug missing correct extensions for handshake
+		}},
 		"13172": &tls.NPNExtension{},
 		"65281": &tls.RenegotiationInfoExtension{
 			Renegotiation: tls.RenegotiateOnceAsClient,
