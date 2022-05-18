@@ -1,4 +1,4 @@
-package ja3transport
+package main
 
 import (
 	"crypto/sha256"
@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	tls "github.com/Danny-Dasilva/utls"
+	tls "github.com/refraction-networking/utls"
 )
 
 const (
@@ -79,7 +79,7 @@ func NewTransportWithConfig(ja3 string, config *tls.Config) (*http.Transport, er
 		return uTLSConn, nil
 	}
 
-	return &http.Transport{DialTLS: dialtls}, nil
+	return &http.Transport{DialTLS: dialtls, MaxIdleConns: 200}, nil
 }
 
 // stringToSpec creates a ClientHelloSpec based on a JA3 string
@@ -244,11 +244,11 @@ func genMap() (extMap map[string]tls.TLSExtension) {
 		}},
 		"30032": &tls.GenericExtension{Id: 0x7550, Data: []byte{0}}, //FIXME
 		"13172": &tls.NPNExtension{},
-		"17513": &tls.ApplicationSettingsExtension{
-			SupportedALPNList: []string{
-				"h2",
-			},
-		},
+		//"17513": &tls.ApplicationSettingsExtension{
+	//		SupportedALPNList: []string{
+	//			"h2",
+//			},
+//		},
 		"65281": &tls.RenegotiationInfoExtension{
 			Renegotiation: tls.RenegotiateOnceAsClient,
 		},
